@@ -22,8 +22,6 @@ public:
 
     typedef size_t MetricUid;
 
-    static constexpr size_t KEY_SIZE = sizeof(MetricUid) + sizeof(time_t);
-
     Storage(const std::string& dir, size_t cacheSizeMb = 16);
 
     MetricUid addMetric(const std::string& name);
@@ -32,15 +30,19 @@ public:
 
     Iterator get(MetricUid muid,  time_t from, time_t to);
 
-    void packKey(char* key, MetricUid muid, time_t timestamp)
-    {
-        memset(key, 0, KEY_SIZE);
-        memcpy(key, &muid, sizeof(muid));
-        memcpy(key + sizeof(muid), &timestamp, sizeof(time_t));
-    }
-
     Storage(const Storage&) = delete;
     Storage& operator=(const Storage&) = delete;
+
+    union Key
+    {
+        struct
+        {
+            MetricUid muid;
+            time_t timestamp;
+        };
+        char data[sizeof(time_t) + sizeof(MetricUid)];
+    };
+
 private:
 
     void initCfg();
@@ -65,7 +67,7 @@ public:
     typedef std::shared_ptr<leveldb::Iterator> IteratorPrivate;
 
     Iterator();
-    Iterator(const IteratorPrivate& iter, const char limit[]);
+    Iterator(const IteratorPrivate& iter, const Key& limit);
 
     bool valid() const;
     Value value() const;
@@ -74,5 +76,5 @@ public:
 
 private:
     IteratorPrivate m_iter;
-    char m_limit[KEY_SIZE];
+    Key m_limit;
 };

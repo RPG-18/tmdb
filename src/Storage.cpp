@@ -19,29 +19,24 @@ namespace
         {
             const char* dataA = a.data();
             const char* dataB = b.data();
-            const Storage::MetricUid* uidA =
-                    reinterpret_cast<const Storage::MetricUid*>(dataA);
-            const Storage::MetricUid* uidB =
-                    reinterpret_cast<const Storage::MetricUid*>(dataB);
-            if (*uidA < *uidB)
+            const Storage::Key* keyA =
+                    reinterpret_cast<const Storage::Key*>(dataA);
+            const Storage::Key* keyB =
+                    reinterpret_cast<const Storage::Key*>(dataB);
+            if (keyA->muid < keyB->muid)
             {
                 return -1;
             }
-            else if (*uidA > *uidB)
+            else if (keyA->muid > keyB->muid)
             {
                 return 1;
             }
 
-            const time_t* timeA = reinterpret_cast<const time_t*>(dataA
-                    + sizeof(Storage::MetricUid));
-            const time_t* timeB = reinterpret_cast<const time_t*>(dataB
-                    + sizeof(Storage::MetricUid));
-
-            if (*timeA < *timeB)
+            if (keyA->timestamp < keyB->timestamp)
             {
                 return -1;
             }
-            else if (*timeA > *timeB)
+            else if (keyA->timestamp > keyB->timestamp)
             {
                 return 1;
             }
@@ -147,10 +142,9 @@ size_t Storage::addMetric(const std::string& name)
 
 bool Storage::put(MetricUid muid, time_t timestamp, double value)
 {
-    char key[KEY_SIZE];
-    packKey(key, muid, timestamp);
+    Key key = {muid, timestamp};
 
-    const auto s = m_data->Put(WriteOptions(), Slice(key, KEY_SIZE),
+    const auto s = m_data->Put(WriteOptions(), Slice(key.data, sizeof(key)),
             Slice(reinterpret_cast<char*>(&value), sizeof(value)));
 
     if (!s.ok())
@@ -163,28 +157,25 @@ bool Storage::put(MetricUid muid, time_t timestamp, double value)
 
 Storage::Iterator Storage::get(MetricUid muid, time_t from, time_t to)
 {
-    char begin[KEY_SIZE];
-    packKey(begin, muid, from);
-
-    char end[KEY_SIZE];
-    packKey(end, muid, to);
+    Key begin = {muid, from};
+    Key end = { muid, to };
 
     Storage::Iterator::IteratorPrivate iter(m_data->NewIterator(ReadOptions()));
-    iter->Seek(Slice(begin, KEY_SIZE));
+    iter->Seek(Slice(begin.data, sizeof(begin)));
     return Storage::Iterator(iter, end);
 }
 
 Storage::Iterator::Iterator():
         m_iter(nullptr)
 {
-    memset(m_limit, 0, sizeof(m_limit));
+    memset(m_limit.data, 0, sizeof(m_limit));
 }
 
 
-Storage::Iterator::Iterator(const IteratorPrivate& iter, const char limit[]) :
-        m_iter(iter)
+Storage::Iterator::Iterator(const IteratorPrivate& iter, const Key& limit) :
+        m_iter(iter),
+        m_limit(limit)
 {
-    memcpy(m_limit, limit, Storage::KEY_SIZE);
 }
 
 bool Storage::Iterator::valid() const
@@ -196,7 +187,7 @@ bool Storage::Iterator::valid() const
 
     return m_iter->Valid()
             && (GLOBAL_COMPORATOR.Compare(m_iter->key(),
-                    Slice(m_limit, Storage::KEY_SIZE)) < 0);
+                    Slice(m_limit.data, sizeof(m_limit))) < 0);
 }
 
 Storage::Iterator::Value Storage::Iterator::value() const
@@ -206,11 +197,10 @@ Storage::Iterator::Value Storage::Iterator::value() const
         return Value(0,0);
     }
 
-    const char* data = m_iter->key().data();
-    time_t time = 0;
-    memcpy(&time, data + sizeof(Storage::MetricUid), sizeof(time));
+    const Key* data =reinterpret_cast<const Key*>(m_iter->key().data());
+
     double val = *reinterpret_cast<const double*>(m_iter->value().data());
-    return Value(time, val);
+    return Value(data->timestamp, val);
 }
 
 void Storage::Iterator::next()
