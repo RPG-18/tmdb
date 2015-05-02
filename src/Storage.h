@@ -15,51 +15,115 @@ namespace leveldb
     class Cache;
 }
 
+/*!
+ * Хранилище метрик
+ */
 class Storage
 {
 public:
     class Iterator;
-
     typedef size_t MetricUid;
 
+    /*!
+     * Представление ключа
+     */
+    struct Key
+    {
+        MetricUid muid;   //!< uid метрики
+        time_t timestamp; //!< время
+    };
+
+    /*!
+     * Конструктор
+     * @param dir каталог для размещения базы данных и базы метрик
+     * @param cacheSizeMb размер блока кеша
+     */
     Storage(const std::string& dir, size_t cacheSizeMb = 16);
 
+    /*!
+     * @brief Добавление метрики.
+     * @param name имя метрики
+     * @return уникальный идентификатор метрики
+     *
+     * Добавляет метрику в базу UID'ов и возвращает UID метрики.
+     * Если метрика уже была добавлена, то возращает UID метрики
+     */
     MetricUid addMetric(const std::string& name);
 
-    bool put(MetricUid muid,  time_t timestamp, double value);
+    /*!
+     * Записать значение
+     * @param muid идентификатор метрики
+     * @param timestamp временная точка
+     * @param value значение
+     * @return true если нет ошибок
+     */
+    bool put(MetricUid muid, time_t timestamp, double value);
 
-    Iterator get(MetricUid muid,  time_t from, time_t to);
+    /*!
+     * Получить итератор для интервала значений метрики
+     * @param muid идентификатор метрики
+     * @param from начало интервала
+     * @param to конец интервала
+     * @return итератор
+     */
+    Iterator get(MetricUid muid, time_t from, time_t to);
 
     Storage(const Storage&) = delete;
     Storage& operator=(const Storage&) = delete;
 
-    union Key
-    {
-        struct
-        {
-            MetricUid muid;
-            time_t timestamp;
-        };
-        char data[sizeof(time_t) + sizeof(MetricUid)];
-    };
-
 private:
 
-    void initCfg();
+    /*!
+     * Инициализация базы uid метрик
+     */
+    void initUID();
+
+    /*!
+     * Инициализация данных
+     */
     void initData();
 
 private:
 
+    /*!
+     * Текущий индекс для UID
+     */
     size_t m_currentIndx;
+
+    /*!
+     * Базавый каталог
+     */
     std::string m_dir;
+
+    /*!
+     * Размер блока кеша
+     */
     size_t m_cacheSizeMb;
 
+    /*!
+     * Кеш для данных
+     */
     std::shared_ptr<leveldb::Cache> m_dataCache;
-    std::shared_ptr<leveldb::DB> m_cfg;
+
+    /*!
+     * База UID'ов
+     */
+    std::shared_ptr<leveldb::DB> m_uid;
+
+    /*!
+     * База измерений
+     */
     std::shared_ptr<leveldb::DB> m_data;
-    std::unordered_map<std::string, MetricUid> m_metric2indx;
+
+    /*!
+     * Мэп метрика -> uid
+     */
+    std::unordered_map<std::string, MetricUid> m_metric2uid;
 };
 
+/*!
+ * Итератор для обхода последовательности данных
+ */
 class Storage::Iterator
 {
 public:
@@ -67,14 +131,28 @@ public:
     typedef std::shared_ptr<leveldb::Iterator> IteratorPrivate;
 
     Iterator();
+
     Iterator(const IteratorPrivate& iter, const Key& limit);
 
+    /*!
+     * Проверка итератора на валидность
+     * @return true если итератор валиден
+     */
     bool valid() const;
+
+    /*!
+     * Полуяить значение
+     * @return кортеж <время, значение>
+     */
     Value value() const;
 
+    /*!
+     * Переход к следующему элементу
+     */
     void next();
 
 private:
-    IteratorPrivate m_iter;
-    Key m_limit;
+
+    IteratorPrivate m_iter; //!< итератор LevelDB
+    Key m_limit; //!< ключ для ограничения последовательности справа
 };
