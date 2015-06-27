@@ -88,7 +88,7 @@ private:
     /*!
      * Текущий индекс для UID
      */
-    size_t m_currentIndx;
+    MetricUid m_currentIndx;
 
     /*!
      * Базавый каталог

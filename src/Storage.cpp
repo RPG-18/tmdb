@@ -128,7 +128,7 @@ void Storage::initData()
     m_data.reset(data);
 }
 
-size_t Storage::addMetric(const std::string& name)
+Storage::MetricUid Storage::addMetric(const std::string& name)
 {
     auto result = m_metric2uid.find(name);
     if (result != m_metric2uid.end())
@@ -137,6 +137,15 @@ size_t Storage::addMetric(const std::string& name)
     }
     ++m_currentIndx;
     m_metric2uid[name] = m_currentIndx;
+    const auto s = m_uid->Put(WriteOptions(),
+            Slice(reinterpret_cast<const char*>(&m_currentIndx), sizeof(m_currentIndx)),
+            name);
+
+    if (!s.ok())
+    {
+        LOG(ERROR)<<"Error put "<<s.ToString();
+    }
+
     return m_currentIndx;
 }
 

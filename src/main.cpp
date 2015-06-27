@@ -20,7 +20,7 @@ int main(int argc, char* argv[])
 
     std::string data;
     size_t cacheSize = 16; //16Mb
-    uint16_t port = 0;
+    uint16_t port = 8080;
 
     int opt = 0;
     while ((opt = getopt(argc, argv, "p:d:c:")) != -1)
