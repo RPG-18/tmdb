@@ -141,7 +141,7 @@ public:
     bool valid() const;
 
     /*!
-     * Полуяить значение
+     * Получить значение
      * @return кортеж <время, значение>
      */
     Value value() const;

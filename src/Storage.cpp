@@ -84,6 +84,7 @@ void Storage::initUID()
 {
     Options options;
     options.create_if_missing = true;
+    options.compression = kNoCompression;
 
     DB* cfg;
     Status status = DB::Open(options, m_dir + "/conf", &cfg);
@@ -217,7 +218,7 @@ Storage::Iterator::Value Storage::Iterator::value() const
 
 void Storage::Iterator::next()
 {
-    if(m_iter)
+    if(m_iter && m_iter->Valid())
     {
         m_iter->Next();
     }
