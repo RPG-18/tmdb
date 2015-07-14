@@ -91,7 +91,7 @@ private:
     MetricUid m_currentIndx;
 
     /*!
-     * Базавый каталог
+     * Базовый каталог
      */
     std::string m_dir;
 
